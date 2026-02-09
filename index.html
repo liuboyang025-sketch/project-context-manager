@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>待办事项 - 协作版</title>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 700px;
+            width: 100%;
+            padding: 40px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* 房间选择界面 */
+        .room-selection {
+            text-align: center;
+        }
+
+        .room-selection h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 32px;
+        }
+
+        .room-selection p {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .demo-notice {
+            background: #d1ecf1;
+            border: 2px solid #17a2b8;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            color: #0c5460;
+            font-size: 14px;
+        }
+
+        .name-input-section {
+            margin-bottom: 30px;
+        }
+
+        .name-input-section input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .name-input-section input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .room-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .room-actions button {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .create-room-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .create-room-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .join-room-section {
+            display: flex;
+            gap: 10px;
+        }
+
+        .join-room-section input {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            text-transform: uppercase;
+        }
+
+        .join-room-btn {
+            background: #4caf50;
+            color: white;
+        }
+
+        .join-room-btn:hover {
+            background: #45a049;
+        }
+
+        .recent-rooms {
+            margin-top: 30px;
+            text-align: left;
+        }
+
+        .recent-rooms h3 {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .recent-room-item {
+            padding: 10px 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .recent-room-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+
+        /* 主应用界面 */
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 32px;
+        }
+
+        .room-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .room-code {
+            font-weight: 600;
+            color: #667eea;
+            font-size: 16px;
+        }
+
+        .room-actions-bar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .share-btn, .leave-room-btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .share-btn {
+            background: #4caf50;
+            color: white;
+        }
+
+        .share-btn:hover {
+            background: #45a049;
+        }
+
+        .leave-room-btn {
+            background: #f44336;
+            color: white;
+        }
+
+        .leave-room-btn:hover {
+            background: #da190b;
+        }
+
+        .users-online {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .user-avatar:hover::after {
+            content: attr(data-name);
+            position: absolute;
+            top: -30px;
+            background: #333;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 10;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4caf50;
+        }
+
+        .status-dot.offline {
+            background: #f44336;
+        }
+
+        .input-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        #todoInput {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        #todoInput:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        select {
+            padding: 10px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        #addBtn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        #addBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .filter-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 10px 20px;
+            background: #f0f0f0;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .filter-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .filter-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .filter-btn.active:hover {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .todo-list {
+            list-style: none;
+        }
+
+        /* 用户分组 */
+        .user-group {
+            margin-bottom: 25px;
+        }
+
+        .user-group-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border-left: 4px solid;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .user-stats {
+            margin-left: auto;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .user-todos {
+            padding-left: 10px;
+        }
+
+        .todo-item {
+            background: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: all 0.3s;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .todo-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .todo-item.completed {
+            opacity: 0.6;
+        }
+
+        .todo-item.completed .todo-text {
+            text-decoration: line-through;
+            color: #999;
+        }
+
+        .checkbox {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            accent-color: #667eea;
+        }
+
+        .todo-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .todo-text {
+            font-size: 16px;
+            color: #333;
+            word-break: break-word;
+        }
+
+        .todo-edit {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #667eea;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .todo-meta {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .priority-badge, .category-badge {
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .priority-high {
+            background: #fee;
+            color: #c33;
+        }
+
+        .priority-medium {
+            background: #ffefd5;
+            color: #d68910;
+        }
+
+        .priority-low {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .category-badge {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .todo-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .edit-btn, .save-btn, .cancel-btn, .delete-btn {
+            padding: 8px 12px;
+            font-size: 14px;
+            border-radius: 8px;
+        }
+
+        .edit-btn {
+            background: #4caf50;
+            color: white;
+        }
+
+        .save-btn {
+            background: #2196f3;
+            color: white;
+        }
+
+        .cancel-btn {
+            background: #9e9e9e;
+            color: white;
+        }
+
+        .delete-btn {
+            background: #f44336;
+            color: white;
+        }
+
+        .edit-btn:hover { background: #45a049; }
+        .save-btn:hover { background: #1976d2; }
+        .cancel-btn:hover { background: #757575; }
+        .delete-btn:hover { background: #da190b; }
+
+        .stats {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-size: 18px;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .success-message {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- 房间选择界面 -->
+    <div class="container room-selection" id="roomSelection">
+        <h1>📝 待办事项 - 协作版</h1>
+        <p>创建或加入房间，与他人实时协作完成待办事项</p>
+
+        <div class="demo-notice">
+            🌐 网络协作模式：数据存储在云端，可以跨设备、跨浏览器实时同步。分享链接给朋友一起使用！
+        </div>
+
+        <div class="name-input-section">
+            <input type="text" id="userNameInput" placeholder="请输入你的名字..." maxlength="20" />
+        </div>
+
+        <div class="room-actions">
+            <button class="create-room-btn" id="createRoomBtn">🎉 创建新房间</button>
+            <div class="join-room-section">
+                <input type="text" id="roomCodeInput" placeholder="输入房间码..." maxlength="6" />
+                <button class="join-room-btn" id="joinRoomBtn">🚪 加入房间</button>
+            </div>
+        </div>
+
+        <div class="recent-rooms" id="recentRoomsSection" style="display: none;">
+            <h3>最近访问的房间</h3>
+            <div id="recentRoomsList"></div>
+        </div>
+
+        <div id="errorMessage"></div>
+    </div>
+
+    <!-- 主应用界面 -->
+    <div class="container hidden" id="mainApp">
+        <h1>📝 待办事项</h1>
+
+        <div class="room-info">
+            <div>
+                <div class="room-code" id="roomCodeDisplay">房间: </div>
+                <div class="connection-status">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="statusText">连接中...</span>
+                </div>
+            </div>
+            <div class="room-actions-bar">
+                <button class="share-btn" id="shareBtn">📋 复制分享链接</button>
+                <button class="leave-room-btn" id="leaveRoomBtn">🚪 退出房间</button>
+            </div>
+            <div class="users-online" id="usersOnline"></div>
+        </div>
+
+        <div class="input-section">
+            <input type="text" id="todoInput" placeholder="添加新的待办事项..." />
+            <button id="addBtn">添加</button>
+        </div>
+
+        <div class="controls">
+            <select id="prioritySelect">
+                <option value="low">低优先级</option>
+                <option value="medium" selected>中优先级</option>
+                <option value="high">高优先级</option>
+            </select>
+            <select id="categorySelect">
+                <option value="">无分类</option>
+                <option value="工作">工作</option>
+                <option value="学习">学习</option>
+                <option value="生活">生活</option>
+                <option value="健康">健康</option>
+                <option value="其他">其他</option>
+            </select>
+        </div>
+
+        <div class="filter-section">
+            <button class="filter-btn active" data-filter="all">全部</button>
+            <button class="filter-btn" data-filter="active">进行中</button>
+            <button class="filter-btn" data-filter="completed">已完成</button>
+        </div>
+
+        <div id="todoList"></div>
+
+        <div class="stats" id="stats"></div>
+    </div>
+
+    <script>
+        // Firebase 配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyANMl9XeHtmJX3j6WWlkS9TbpVZzVuN1u8",
+            authDomain: "todo-156cd.firebaseapp.com",
+            databaseURL: "https://todo-156cd-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "todo-156cd",
+            storageBucket: "todo-156cd.firebasestorage.app",
+            messagingSenderId: "115799825168",
+            appId: "1:115799825168:web:1cbe9e7218ace361a4a395"
+        };
+
+        // 初始化 Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // 用户管理器
+        class UserManager {
+            constructor() {
+                this.userId = this.getOrCreateUserId();
+                this.userName = localStorage.getItem('userName') || '';
+                this.userColor = this.getOrCreateUserColor();
+            }
+
+            getOrCreateUserId() {
+                let userId = localStorage.getItem('userId');
+                if (!userId) {
+                    userId = 'user-' + this.generateUUID();
+                    localStorage.setItem('userId', userId);
+                }
+                return userId;
+            }
+
+            getOrCreateUserColor() {
+                let color = localStorage.getItem('userColor');
+                if (!color) {
+                    const colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b', '#fa709a', '#fee140', '#30cfd0'];
+                    color = colors[Math.floor(Math.random() * colors.length)];
+                    localStorage.setItem('userColor', color);
+                }
+                return color;
+            }
+
+            setUserName(name) {
+                this.userName = name;
+                localStorage.setItem('userName', name);
+            }
+
+            generateUUID() {
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+                    const r = Math.random() * 16 | 0;
+                    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+            }
+        }
+
+        // 房间管理器
+        class RoomManager {
+            generateRoomCode() {
+                const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+                let code = '';
+                for (let i = 0; i < 6; i++) {
+                    code += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                return code;
+            }
+
+            async createRoom(userId, userName, userColor) {
+                const roomCode = this.generateRoomCode();
+                const roomRef = database.ref(`rooms/${roomCode}`);
+
+                await roomRef.set({
+                    metadata: {
+                        createdAt: new Date().toISOString(),
+                        createdBy: userId
+                    },
+                    users: {
+                        [userId]: {
+                            name: userName,
+                            color: userColor,
+                            lastActive: new Date().toISOString()
+                        }
+                    },
+                    todos: {}
+                });
+
+                this.addToRecentRooms(roomCode);
+                return roomCode;
+            }
+
+            async joinRoom(roomCode, userId, userName, userColor) {
+                const roomRef = database.ref(`rooms/${roomCode}`);
+                const snapshot = await roomRef.once('value');
+
+                if (!snapshot.exists()) {
+                    throw new Error('房间不存在');
+                }
+
+                await roomRef.child(`users/${userId}`).set({
+                    name: userName,
+                    color: userColor,
+                    lastActive: new Date().toISOString()
+                });
+
+                this.addToRecentRooms(roomCode);
+                return roomCode;
+            }
+
+            addToRecentRooms(roomCode) {
+                let recent = JSON.parse(localStorage.getItem('recentRooms') || '[]');
+                recent = recent.filter(r => r !== roomCode);
+                recent.unshift(roomCode);
+                recent = recent.slice(0, 5);
+                localStorage.setItem('recentRooms', JSON.stringify(recent));
+            }
+
+            getRecentRooms() {
+                return JSON.parse(localStorage.getItem('recentRooms') || '[]');
+            }
+
+            getShareUrl(roomCode) {
+                return `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
+            }
+        }
+
+        // 协作待办应用
+        class CollaborativeTodoApp {
+            constructor(roomCode, userId, userName, userColor) {
+                this.roomCode = roomCode;
+                this.userId = userId;
+                this.userName = userName;
+                this.userColor = userColor;
+
+                this.roomRef = database.ref(`rooms/${roomCode}`);
+                this.todosRef = this.roomRef.child('todos');
+                this.usersRef = this.roomRef.child('users');
+
+                this.todos = [];
+                this.users = {};
+                this.filter = 'all';
+                this.editingId = null;
+                this.isConnected = false;
+
+                this.init();
+            }
+
+            init() {
+                this.setupConnectionMonitoring();
+                this.setupRealtimeSync();
+                this.bindEvents();
+                this.updateLastActive();
+            }
+
+            setupConnectionMonitoring() {
+                const connectedRef = database.ref('.info/connected');
+                connectedRef.on('value', (snapshot) => {
+                    this.isConnected = snapshot.val() === true;
+                    this.updateConnectionStatus();
+
+                    if (this.isConnected) {
+                        this.updateLastActive();
+                    }
+                });
+            }
+
+            updateConnectionStatus() {
+                const statusDot = document.getElementById('statusDot');
+                const statusText = document.getElementById('statusText');
+
+                if (this.isConnected) {
+                    statusDot.classList.remove('offline');
+                    statusText.textContent = '已连接';
+                } else {
+                    statusDot.classList.add('offline');
+                    statusText.textContent = '离线';
+                }
+            }
+
+            updateLastActive() {
+                if (this.isConnected) {
+                    this.usersRef.child(`${this.userId}/lastActive`).set(new Date().toISOString());
+                }
+
+                // 每30秒更新一次在线状态
+                setTimeout(() => this.updateLastActive(), 30000);
+            }
+
+            setupRealtimeSync() {
+                this.todosRef.on('value', (snapshot) => {
+                    const data = snapshot.val() || {};
+                    this.todos = Object.values(data).sort((a, b) =>
+                        new Date(b.createdAt) - new Date(a.createdAt)
+                    );
+                    this.renderTodos();
+                });
+
+                this.usersRef.on('value', (snapshot) => {
+                    this.users = snapshot.val() || {};
+                    this.renderUsers();
+                });
+            }
+
+            bindEvents() {
+                document.getElementById('addBtn').addEventListener('click', () => this.addTodo());
+                document.getElementById('todoInput').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.addTodo();
+                });
+
+                document.querySelectorAll('.filter-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                        e.target.classList.add('active');
+                        this.filter = e.target.dataset.filter;
+                        this.renderTodos();
+                    });
+                });
+
+                document.getElementById('shareBtn').addEventListener('click', () => this.shareRoom());
+                document.getElementById('leaveRoomBtn').addEventListener('click', () => this.leaveRoom());
+            }
+
+            async addTodo() {
+                const input = document.getElementById('todoInput');
+                const text = input.value.trim();
+                if (!text) return;
+
+                const priority = document.getElementById('prioritySelect').value;
+                const category = document.getElementById('categorySelect').value;
+
+                const todoId = 'todo-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                const todo = {
+                    id: todoId,
+                    text: text,
+                    completed: false,
+                    priority: priority,
+                    category: category,
+                    createdAt: new Date().toISOString(),
+                    createdBy: this.userId,
+                    createdByName: this.userName,
+                    updatedAt: new Date().toISOString()
+                };
+
+                await this.todosRef.child(todoId).set(todo);
+                input.value = '';
+                input.focus();
+            }
+
+            async toggleTodo(id) {
+                const todo = this.todos.find(t => t.id === id);
+                if (todo) {
+                    await this.todosRef.child(id).update({
+                        completed: !todo.completed,
+                        updatedAt: new Date().toISOString()
+                    });
+                }
+            }
+
+            async deleteTodo(id) {
+                const todo = this.todos.find(t => t.id === id);
+                if (todo && todo.createdBy === this.userId) {
+                    await this.todosRef.child(id).remove();
+                }
+            }
+
+            startEdit(id) {
+                const todo = this.todos.find(t => t.id === id);
+                if (todo && todo.createdBy === this.userId) {
+                    this.editingId = id;
+                    this.renderTodos();
+                    setTimeout(() => {
+                        const editInput = document.querySelector(`#edit-${id}`);
+                        if (editInput) {
+                            editInput.focus();
+                            editInput.select();
+                        }
+                    }, 100);
+                }
+            }
+
+            async saveEdit(id) {
+                const input = document.querySelector(`#edit-${id}`);
+                const newText = input.value.trim();
+
+                if (newText) {
+                    const todo = this.todos.find(t => t.id === id);
+                    if (todo && todo.createdBy === this.userId) {
+                        await this.todosRef.child(id).update({
+                            text: newText,
+                            updatedAt: new Date().toISOString()
+                        });
+                    }
+                }
+
+                this.editingId = null;
+                this.renderTodos();
+            }
+
+            cancelEdit() {
+                this.editingId = null;
+                this.renderTodos();
+            }
+
+            getFilteredTodos() {
+                switch(this.filter) {
+                    case 'active':
+                        return this.todos.filter(t => !t.completed);
+                    case 'completed':
+                        return this.todos.filter(t => t.completed);
+                    default:
+                        return this.todos;
+                }
+            }
+
+            renderTodos() {
+                const container = document.getElementById('todoList');
+                const filteredTodos = this.getFilteredTodos();
+
+                if (filteredTodos.length === 0) {
+                    container.innerHTML = '<div class="empty-state">暂无待办事项</div>';
+                    this.updateStats();
+                    return;
+                }
+
+                const groupedByUser = {};
+                filteredTodos.forEach(todo => {
+                    const userId = todo.createdBy;
+                    if (!groupedByUser[userId]) {
+                        groupedByUser[userId] = [];
+                    }
+                    groupedByUser[userId].push(todo);
+                });
+
+                let html = '';
+                Object.entries(groupedByUser).forEach(([userId, todos]) => {
+                    const user = this.users[userId] || { name: '未知用户', color: '#999' };
+                    const isCurrentUser = userId === this.userId;
+
+                    html += `
+                        <div class="user-group">
+                            <div class="user-group-header" style="border-left-color: ${user.color}">
+                                <span class="user-avatar" style="background: ${user.color}">
+                                    ${user.name.charAt(0)}
+                                </span>
+                                <span class="user-name">${this.escapeHtml(user.name)}${isCurrentUser ? ' (我)' : ''}</span>
+                                <span class="user-stats">${todos.length} 项</span>
+                            </div>
+                            <div class="user-todos">
+                                ${todos.map(todo => this.renderTodoItem(todo, isCurrentUser)).join('')}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+                this.updateStats();
+            }
+
+            renderTodoItem(todo, isOwner) {
+                const priorityLabels = {
+                    high: '高优先级',
+                    medium: '中优先级',
+                    low: '低优先级'
+                };
+
+                const isEditing = this.editingId === todo.id;
+                const escapedText = this.escapeHtml(todo.text);
+
+                return `
+                    <div class="todo-item ${todo.completed ? 'completed' : ''}">
+                        <input type="checkbox"
+                               class="checkbox"
+                               ${todo.completed ? 'checked' : ''}
+                               onchange="app.toggleTodo('${todo.id}')" />
+
+                        <div class="todo-content">
+                            ${isEditing ?
+                                `<input type="text"
+                                        id="edit-${todo.id}"
+                                        class="todo-edit"
+                                        value="${escapedText}"
+                                        onkeypress="if(event.key==='Enter') app.saveEdit('${todo.id}')"
+                                        onkeydown="if(event.key==='Escape') app.cancelEdit()" />` :
+                                `<div class="todo-text">${escapedText}</div>`
+                            }
+                            <div class="todo-meta">
+                                <span class="priority-badge priority-${todo.priority}">
+                                    ${priorityLabels[todo.priority]}
+                                </span>
+                                ${todo.category ?
+                                    `<span class="category-badge">${this.escapeHtml(todo.category)}</span>` :
+                                    ''
+                                }
+                            </div>
+                        </div>
+
+                        ${isOwner ? `
+                            <div class="todo-actions">
+                                ${isEditing ? `
+                                    <button class="save-btn" onclick="app.saveEdit('${todo.id}')">保存</button>
+                                    <button class="cancel-btn" onclick="app.cancelEdit()">取消</button>
+                                ` : `
+                                    <button class="edit-btn" onclick="app.startEdit('${todo.id}')">编辑</button>
+                                    <button class="delete-btn" onclick="app.deleteTodo('${todo.id}')">删除</button>
+                                `}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            renderUsers() {
+                const container = document.getElementById('usersOnline');
+                const usersList = Object.entries(this.users).map(([userId, user]) => {
+                    return `
+                        <span class="user-avatar"
+                              style="background: ${user.color}"
+                              data-name="${this.escapeHtml(user.name)}${userId === this.userId ? ' (我)' : ''}">
+                            ${user.name.charAt(0)}
+                        </span>
+                    `;
+                }).join('');
+
+                container.innerHTML = usersList;
+            }
+
+            updateStats() {
+                const total = this.todos.length;
+                const completed = this.todos.filter(t => t.completed).length;
+                const active = total - completed;
+
+                document.getElementById('stats').innerHTML =
+                    `总计: ${total} 项 | 进行中: ${active} 项 | 已完成: ${completed} 项`;
+            }
+
+            shareRoom() {
+                const roomManager = new RoomManager();
+                const url = roomManager.getShareUrl(this.roomCode);
+
+                navigator.clipboard.writeText(url).then(() => {
+                    this.showMessage('分享链接已复制！发送给朋友即可一起协作。', 'success');
+                }).catch(() => {
+                    prompt('复制此链接分享给朋友：', url);
+                });
+            }
+
+            leaveRoom() {
+                if (confirm('确定要退出房间吗？')) {
+                    this.cleanup();
+                    window.location.href = window.location.pathname;
+                }
+            }
+
+            cleanup() {
+                this.todosRef.off();
+                this.usersRef.off();
+                database.ref('.info/connected').off();
+            }
+
+            showMessage(message, type) {
+                const container = document.getElementById('mainApp');
+                const msgDiv = document.createElement('div');
+                msgDiv.className = type === 'success' ? 'success-message' : 'error-message';
+                msgDiv.textContent = message;
+                container.insertBefore(msgDiv, container.firstChild);
+
+                setTimeout(() => msgDiv.remove(), 3000);
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        }
+
+        // 应用初始化
+        let app;
+        const userManager = new UserManager();
+        const roomManager = new RoomManager();
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.innerHTML = `<div class="error-message">${message}</div>`;
+            setTimeout(() => errorDiv.innerHTML = '', 3000);
+        }
+
+        function showRoomSelection() {
+            document.getElementById('roomSelection').classList.remove('hidden');
+            document.getElementById('mainApp').classList.add('hidden');
+
+            const nameInput = document.getElementById('userNameInput');
+            nameInput.value = userManager.userName;
+
+            const recentRooms = roomManager.getRecentRooms();
+            if (recentRooms.length > 0) {
+                document.getElementById('recentRoomsSection').style.display = 'block';
+                const list = document.getElementById('recentRoomsList');
+                list.innerHTML = recentRooms.map(code =>
+                    `<div class="recent-room-item" onclick="joinRecentRoom('${code}')">房间 ${code}</div>`
+                ).join('');
+            }
+        }
+
+        function showMainApp(roomCode) {
+            document.getElementById('roomSelection').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            document.getElementById('roomCodeDisplay').textContent = '房间: ' + roomCode;
+        }
+
+        async function joinRecentRoom(roomCode) {
+            const userName = document.getElementById('userNameInput').value.trim();
+            if (!userName) {
+                showError('请输入你的名字');
+                return;
+            }
+
+            userManager.setUserName(userName);
+
+            try {
+                await roomManager.joinRoom(roomCode, userManager.userId, userName, userManager.userColor);
+                showMainApp(roomCode);
+                app = new CollaborativeTodoApp(roomCode, userManager.userId, userName, userManager.userColor);
+                history.pushState({}, '', `?room=${roomCode}`);
+            } catch (error) {
+                showError('加入房间失败: ' + error.message);
+            }
+        }
+
+        document.getElementById('createRoomBtn').addEventListener('click', async () => {
+            const userName = document.getElementById('userNameInput').value.trim();
+            if (!userName) {
+                showError('请输入你的名字');
+                return;
+            }
+
+            userManager.setUserName(userName);
+
+            try {
+                const roomCode = await roomManager.createRoom(userManager.userId, userName, userManager.userColor);
+                showMainApp(roomCode);
+                app = new CollaborativeTodoApp(roomCode, userManager.userId, userName, userManager.userColor);
+                history.pushState({}, '', `?room=${roomCode}`);
+            } catch (error) {
+                showError('创建房间失败: ' + error.message);
+            }
+        });
+
+        document.getElementById('joinRoomBtn').addEventListener('click', async () => {
+            const userName = document.getElementById('userNameInput').value.trim();
+            const roomCode = document.getElementById('roomCodeInput').value.trim().toUpperCase();
+
+            if (!userName) {
+                showError('请输入你的名字');
+                return;
+            }
+
+            if (!roomCode || roomCode.length !== 6) {
+                showError('请输入正确的6位房间码');
+                return;
+            }
+
+            userManager.setUserName(userName);
+
+            try {
+                await roomManager.joinRoom(roomCode, userManager.userId, userName, userManager.userColor);
+                showMainApp(roomCode);
+                app = new CollaborativeTodoApp(roomCode, userManager.userId, userName, userManager.userColor);
+                history.pushState({}, '', `?room=${roomCode}`);
+            } catch (error) {
+                showError('加入房间失败: ' + error.message);
+            }
+        });
+
+        document.getElementById('roomCodeInput').addEventListener('input', (e) => {
+            e.target.value = e.target.value.toUpperCase();
+        });
+
+        document.getElementById('userNameInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('createRoomBtn').click();
+            }
+        });
+
+        document.getElementById('roomCodeInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('joinRoomBtn').click();
+            }
+        });
+
+        // 页面加载时检查 URL 参数
+        window.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomCode = urlParams.get('room');
+
+            if (roomCode) {
+                const userName = userManager.userName;
+                if (userName) {
+                    try {
+                        await roomManager.joinRoom(roomCode, userManager.userId, userName, userManager.userColor);
+                        showMainApp(roomCode);
+                        app = new CollaborativeTodoApp(roomCode, userManager.userId, userName, userManager.userColor);
+                    } catch (error) {
+                        showRoomSelection();
+                        showError('无法加入房间，请检查房间码是否正确');
+                    }
+                } else {
+                    showRoomSelection();
+                    document.getElementById('roomCodeInput').value = roomCode;
+                }
+            } else {
+                showRoomSelection();
+            }
+        });
+    </script>
+</body>
+</html>
